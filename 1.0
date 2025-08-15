@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Dados de Pacientes</title>
+    <!-- Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca SheetJS (xlsx) para ler e escrever arquivos Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .file-input-button {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6 md:p-8">
+        
+        <div class="text-center mb-6">
+            <svg class="mx-auto h-12 w-auto text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-1.621-.87a3 3 0 01-.879-2.122v-1.007M15 5.25a3 3 0 00-3-3m3 3a3 3 0 01-3 3m-3-3a3 3 0 013-3m-3 3a3 3 0 003 3m-6 9h12a2.25 2.25 0 002.25-2.25V7.5a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 7.5v9.75A2.25 2.25 0 005.25 19.5z" />
+            </svg>
+            <h1 class="text-2xl font-bold text-gray-800 mt-4">Ferramenta de Análise de Pacientes</h1>
+            <p class="text-gray-500 mt-1">Carregue sua planilha XLS para gerar os relatórios.</p>
+        </div>
+
+        <!-- Área de Upload -->
+        <div class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <input type="file" id="fileUploader" class="hidden" accept=".xls, .xlsx">
+            <label for="fileUploader" class="file-input-button cursor-pointer bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">
+                Escolher Arquivo XLS
+            </label>
+            <p id="fileName" class="mt-3 text-sm text-gray-600">Nenhum arquivo selecionado.</p>
+        </div>
+
+        <!-- Botão de Processamento -->
+        <div class="mt-6">
+            <button id="processButton" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 ease-in-out flex items-center justify-center" disabled>
+                <svg id="processIcon" class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.667 0l3.181-3.183m-4.991-2.691V5.25a3.375 3.375 0 00-3.375-3.375H8.25a3.375 3.375 0 00-3.375 3.375v5.25m5.908 3.428l-3.182 3.182a8.25 8.25 0 01-11.667 0l-3.181-3.182m4.991 2.691V19.5a3.375 3.375 0 003.375 3.375h5.25a3.375 3.375 0 003.375-3.375v-5.25m-5.908-3.428z" /></svg>
+                <svg id="loadingSpinner" class="animate-spin h-5 w-5 mr-3 hidden" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span id="buttonText">Processar Arquivo</span>
+            </button>
+        </div>
+
+        <!-- Mensagens de Status e Erro -->
+        <div id="statusMessage" class="mt-4 text-center text-sm font-medium"></div>
+
+        <!-- Área de Resultados e Download -->
+        <div id="results" class="mt-6 pt-6 border-t border-gray-200 hidden">
+            <h2 class="text-lg font-semibold text-gray-700 text-center">Relatórios Prontos!</h2>
+            <p class="text-center text-gray-500 mb-4">Clique nos botões abaixo para fazer o download.</p>
+            <div class="grid grid-cols-1 gap-3">
+                <button id="exportUnificado" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition-all duration-300 ease-in-out flex items-center justify-center">
+                    <svg class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.586l-2.22-2.22a.75.75 0 00-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                    Exportar Relatório Unificado
+                </button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button id="exportGeral" class="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition-all duration-300 ease-in-out flex items-center justify-center">
+                        <svg class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75z" clip-rule="evenodd" /></svg>
+                        Exportar Aceitos (Geral)
+                    </button>
+                    <button id="exportOrto" class="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 transition-all duration-300 ease-in-out flex items-center justify-center">
+                        <svg class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75z" clip-rule="evenodd" /></svg>
+                        Exportar Aceitos (Ortopedia)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ELEMENTOS DA UI ---
+        const fileUploader = document.getElementById('fileUploader');
+        const fileNameDisplay = document.getElementById('fileName');
+        const processButton = document.getElementById('processButton');
+        const resultsDiv = document.getElementById('results');
+        const exportGeralButton = document.getElementById('exportGeral');
+        const exportOrtoButton = document.getElementById('exportOrto');
+        const exportUnificadoButton = document.getElementById('exportUnificado');
+        const statusMessage = document.getElementById('statusMessage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const processIcon = document.getElementById('processIcon');
+        const buttonText = document.getElementById('buttonText');
+
+        // --- VARIÁVEIS DE ESTADO ---
+        let workbookData = null;
+        let geralCounts = {};
+        let ortoCounts = {};
+
+        // --- CRITÉRIOS DE FILTRO ---
+        const situacoesAceitas = [
+            'Aguardando Remoção',
+            'Alta',
+            'Em Trânsito',
+            'Internado',
+            'Paciente Avaliado e Liberado',
+            'Reserva Confirmada'
+        ];
+        const especialidadesOrtopedia = [
+            'Ortopedia',
+            'Ortopedia/traumatologia'
+        ];
+        
+        const hospitaisPrioritariosGeral = [
+            'HOSPITAL REGIONAL DO SUDOESTE', 'HOSPITAL MUNICIPAL DE CASCAVEL', 'HOSPITAL REGIONAL DE TOLEDO HRT',
+            'HOSPITAL UNIVERSITARIO OESTE DO PARANA', 'HOESP', 'HOSPITAL BENEFICENTE ASSISTEGUAIRA',
+            'ASSOCIACAO HOSPITALAR BENEFICENTE MOACIR', 'HOSPITAL DR AURELIO', 'HOSPITAL DE ENSINO SAO LUCAS',
+            'HOSPITAL MINISTRO COSTA CAVALCANTI', 'HOSPITAL DO CANCER DE CASCAVEL UOPECCAN',
+            'HOSPITAL MUNICIPAL PADRE GERMANO LAUCK', 'CEONC', 'DEUS MENINO - CEONC', 'INSTITUTO SAO RAFAEL',
+            'HOSPITAL SAO FRANCISCO', 'POLICLINICA PATO BRANCO', 'HOSPITAL MUNICIPAL PREFEITO QUINTO ABRAO'
+        ];
+
+        const hospitaisPrioritariosOrto = [
+            'HOSPITAL REGIONAL DO SUDOESTE', 'HOSPITAL UNIVERSITARIO OESTE DO PARANA', 'ASSOCIACAO HOSPITALAR BENEFICENTE MOACIR',
+            'HOESP', 'HOSPITAL DE ENSINO SAO LUCAS', 'HOSPITAL MUNICIPAL PADRE GERMANO LAUCK', 'HOSPITAL E MATERNIDADE NOSSA SENHORA DA'
+        ];
+
+        // --- EVENT LISTENERS ---
+        fileUploader.addEventListener('change', () => {
+            if (fileUploader.files.length > 0) {
+                const file = fileUploader.files[0];
+                fileNameDisplay.textContent = file.name;
+                processButton.disabled = false;
+                resultsDiv.classList.add('hidden');
+                statusMessage.textContent = '';
+            } else {
+                fileNameDisplay.textContent = 'Nenhum arquivo selecionado.';
+                processButton.disabled = true;
+            }
+        });
+
+        processButton.addEventListener('click', handleFile);
+
+        exportGeralButton.addEventListener('click', () => {
+            exportToXLS(geralCounts, 'Relatorio_Aceitos_Geral', hospitaisPrioritariosGeral);
+        });
+
+        exportOrtoButton.addEventListener('click', () => {
+            exportToXLS(ortoCounts, 'Relatorio_Aceitos_Ortopedia', hospitaisPrioritariosOrto);
+        });
+        
+        exportUnificadoButton.addEventListener('click', exportUnifiedToXLS);
+
+        // --- FUNÇÕES PRINCIPAIS ---
+
+        function handleFile() {
+            const file = fileUploader.files[0];
+            if (!file) {
+                showStatus('Por favor, selecione um arquivo primeiro.', 'error');
+                return;
+            }
+            setLoadingState(true);
+            resultsDiv.classList.add('hidden');
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    workbookData = XLSX.read(data, { type: 'array' });
+                    processData();
+                    showStatus('Arquivo processado com sucesso!', 'success');
+                    resultsDiv.classList.remove('hidden');
+                } catch (error) {
+                    console.error("Erro ao ler o arquivo:", error);
+                    showStatus('Erro ao processar o arquivo. Verifique se o formato é válido.', 'error');
+                } finally {
+                    setLoadingState(false);
+                }
+            };
+            reader.onerror = (error) => {
+                console.error("Erro do FileReader:", error);
+                showStatus('Não foi possível ler o arquivo.', 'error');
+                setLoadingState(false);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processData() {
+            geralCounts = {};
+            ortoCounts = {};
+            const firstSheetName = workbookData.SheetNames[0];
+            const worksheet = workbookData.Sheets[firstSheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row || row.length < 14) continue;
+                const hospital = row[4];
+                const situacao = row[11];
+                const especialidade = row[13];
+                if (!hospital || !situacao) continue;
+
+                if (situacoesAceitas.includes(situacao.toString().trim())) {
+                    const hospitalKey = hospital.toString().trim();
+                    geralCounts[hospitalKey] = (geralCounts[hospitalKey] || 0) + 1;
+                    if (especialidade && especialidadesOrtopedia.some(esp => especialidade.toString().trim().toLowerCase().includes(esp.toLowerCase()))) {
+                         ortoCounts[hospitalKey] = (ortoCounts[hospitalKey] || 0) + 1;
+                    }
+                }
+            }
+        }
+
+        function exportToXLS(counts, fileName, priorityList) {
+            const priorityData = [];
+            const otherHospitalsMap = new Map();
+            Object.keys(counts).forEach(hospital => {
+                const hospitalNormalized = hospital.toUpperCase();
+                if (!priorityList.includes(hospitalNormalized)) {
+                    otherHospitalsMap.set(hospital, counts[hospital]);
+                }
+            });
+
+            priorityList.forEach(priorityHospitalName => {
+                const originalHospitalKey = Object.keys(counts).find(key => key.toUpperCase() === priorityHospitalName);
+                const count = originalHospitalKey ? counts[originalHospitalKey] : 0;
+                priorityData.push([priorityHospitalName, count]);
+            });
+            
+            const sortedOtherData = Array.from(otherHospitalsMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+            let dataForSheet = [...priorityData];
+            if (priorityData.length > 0 && sortedOtherData.length > 0) {
+                dataForSheet.push([]);
+            }
+            dataForSheet.push(...sortedOtherData);
+
+            const finalData = [['EAS Executante', 'Número de Aceitos'], ...dataForSheet];
+            const newWorksheet = XLSX.utils.aoa_to_sheet(finalData);
+            newWorksheet['!cols'] = [{ wch: 45 }, { wch: 20 }];
+            const newWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'Relatório');
+            XLSX.writeFile(newWorkbook, `${fileName}.xlsx`);
+        }
+        
+        function exportUnifiedToXLS() {
+            const dataForSheet = [];
+
+            // --- Seção Geral ---
+            dataForSheet.push(['Relatório Aceitos (Geral)']);
+            dataForSheet.push(['EAS Executante', 'Número de Aceitos']);
+
+            hospitaisPrioritariosGeral.forEach(priorityHospitalName => {
+                const originalHospitalKey = Object.keys(geralCounts).find(key => key.toUpperCase() === priorityHospitalName);
+                const count = originalHospitalKey ? geralCounts[originalHospitalKey] : 0;
+                dataForSheet.push([priorityHospitalName, count]);
+            });
+
+            // --- Separador ---
+            dataForSheet.push([]);
+
+            // --- Seção Ortopedia ---
+            dataForSheet.push(['Relatório Aceitos (Ortopedia)']);
+            dataForSheet.push(['EAS Executante', 'Número de Aceitos']);
+
+            hospitaisPrioritariosOrto.forEach(priorityHospitalName => {
+                const originalHospitalKey = Object.keys(ortoCounts).find(key => key.toUpperCase() === priorityHospitalName);
+                const count = originalHospitalKey ? ortoCounts[originalHospitalKey] : 0;
+                dataForSheet.push([priorityHospitalName, count]);
+            });
+
+            // --- Geração do XLS ---
+            const newWorksheet = XLSX.utils.aoa_to_sheet(dataForSheet);
+            newWorksheet['!cols'] = [{ wch: 45 }, { wch: 20 }];
+            const newWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'Relatorio_Unificado');
+            XLSX.writeFile(newWorkbook, 'Relatorio_Unificado_Prioritarios.xlsx');
+        }
+
+        // --- FUNÇÕES AUXILIARES DE UI ---
+        function showStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('text-green-600', 'text-red-600', 'text-gray-600');
+            if (type === 'success') statusMessage.classList.add('text-green-600');
+            else if (type === 'error') statusMessage.classList.add('text-red-600');
+            else statusMessage.classList.add('text-gray-600');
+        }
+
+        function setLoadingState(isLoading) {
+            processButton.disabled = isLoading;
+            loadingSpinner.classList.toggle('hidden', !isLoading);
+            processIcon.classList.toggle('hidden', isLoading);
+            buttonText.textContent = isLoading ? 'Processando...' : 'Processar Arquivo';
+        }
+    </script>
+
+</body>
+</html>
